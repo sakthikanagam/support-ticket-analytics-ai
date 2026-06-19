@@ -1,0 +1,311 @@
+
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>
+Support Ticket Analytics AI
+</title>
+
+<link rel="stylesheet" href="/static/style.css">
+
+</head>
+
+<body>
+
+<div class="app">
+
+    <div class="header">
+        🎫 Support Ticket Analytics AI
+    </div>
+
+    <div id="chat-box" class="chat-box">
+
+        <div class="bot-message">
+            Hello 👋<br><br>
+            Ask me anything about support tickets.
+        </div>
+
+    </div>
+
+    <div class="input-area">
+
+        <input
+            type="text"
+            id="question"
+            placeholder="Ask a question..."
+            onkeypress="handleEnter(event)"
+        >
+
+        <button onclick="askQuestion()">
+            Send
+        </button>
+
+    </div>
+
+</div>
+
+
+<script>
+
+function handleEnter(event){
+
+    if(event.key === "Enter"){
+        askQuestion();
+    }
+
+}
+
+async function askQuestion(){
+
+    const input =
+        document.getElementById("question");
+
+    const question =
+        input.value.trim();
+
+    if(!question){
+        return;
+    }
+
+    const chatBox =
+        document.getElementById("chat-box");
+
+    chatBox.innerHTML += `
+        <div class="user-message">
+            ${question}
+        </div>
+    `;
+
+    input.value = "";
+
+    const loadingId = Date.now();
+
+    chatBox.innerHTML += `
+        <div class="bot-message" id="${loadingId}">
+            Thinking...
+        </div>
+    `;
+
+    chatBox.scrollTop =
+        chatBox.scrollHeight;
+
+    try{
+
+        const response =
+            await fetch("/query",{
+                method:"POST",
+                headers:{
+                    "Content-Type":"application/json"
+                },
+                body:JSON.stringify({
+                    question:question
+                })
+            });
+
+        const data =
+            await response.json();
+
+        const answer =
+            data.answer;
+
+        let html = "";
+
+        // ==========================
+        // ARRAY RESULTS
+        // ==========================
+
+        if(Array.isArray(answer)){
+
+            html =
+            `<div class="bot-message">`;
+
+            if(answer.length === 0){
+
+                html += `
+                No records found.
+                `;
+            }
+
+            else{
+
+                html += `
+                <table>
+                `;
+
+                let keys =
+                    Object.keys(answer[0]);
+
+                html += "<tr>";
+
+                keys.forEach(key=>{
+                    html += `
+                    <th>${key}</th>
+                    `;
+                });
+
+                html += "</tr>";
+
+                answer.forEach(row=>{
+
+                    html += "<tr>";
+
+                    keys.forEach(key=>{
+
+                        html += `
+                        <td>
+                        ${row[key] ?? ""}
+                        </td>
+                        `;
+                    });
+
+                    html += "</tr>";
+                });
+
+                html += `
+                </table>
+                `;
+            }
+
+            html += `
+            </div>
+            `;
+        }
+
+        // ==========================
+        // ANOMALIES
+        // ==========================
+
+        else if(answer.anomalies){
+
+            html = `
+            <div class="bot-message">
+
+            <h3>
+            Total Anomalies:
+            ${answer.total_anomalies}
+            </h3>
+            `;
+
+            answer.anomalies.forEach(item=>{
+
+                html += `
+                <div class="anomaly-card">
+
+                    <b>
+                    ${item.ticket_id}
+                    </b>
+
+                    <br>
+
+                    ${item.reason}
+
+                </div>
+                `;
+            });
+
+            html += `
+            </div>
+            `;
+        }
+
+        // ==========================
+        // OBJECT RESULTS
+        // ==========================
+
+        else if(typeof answer === "object"){
+
+            html =
+            `<div class="bot-message">`;
+
+            if(answer.count){
+
+                html += `
+                <h3>
+                Total Count:
+                ${answer.count}
+                </h3>
+                `;
+            }
+
+            else if(answer.average_rating){
+
+                html += `
+                <h3>
+                Average Rating:
+                ${answer.average_rating} ⭐
+                </h3>
+                `;
+            }
+
+            else{
+
+                for(let key in answer){
+
+                    html += `
+                    <p>
+                        <b>
+                        ${key
+                            .replaceAll("_"," ")
+                            .toUpperCase()}
+                        :</b>
+
+                        ${answer[key]}
+                    </p>
+                    `;
+                }
+            }
+
+            html += `
+            </div>
+            `;
+        }
+
+        // ==========================
+        // TEXT RESULTS
+        // ==========================
+
+        else{
+
+            html =
+            `
+            <div class="bot-message">
+            ${answer}
+            </div>
+            `;
+        }
+
+        document.getElementById(
+            loadingId
+        ).outerHTML = html;
+
+        chatBox.scrollTop =
+            chatBox.scrollHeight;
+
+    }
+
+    catch(err){
+
+        document.getElementById(
+            loadingId
+        ).outerHTML =
+        `
+        <div class="bot-message">
+            Error:
+            ${err}
+        </div>
+        `;
+    }
+
+}
+
+</script>
+
+
+</body>
+
+</html>
+
